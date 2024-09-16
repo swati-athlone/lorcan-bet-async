@@ -35,6 +35,13 @@ public class InventoryService {
         return false;  // If inventory not found, consider as unavailable
     }
 
+    public InventoryDto getInventory(Long productId) {
+        Optional<Inventory> inventoryOptional = inventoryRepository.findByProductId(productId);
+
+        return inventoryOptional.map(this::mapToDTO).orElseGet(() -> (new InventoryDto(productId, "No inventory found for ProductID: " + productId)));
+
+    }
+
     // Method to deduct inventory
     public InventoryDto updateInventory(Long productId, int quantityToDeduct) {
         Optional<Inventory> inventoryOptional = inventoryRepository.findByProductId(productId);
@@ -79,15 +86,22 @@ public class InventoryService {
         }
 
         Inventory savedInventory = inventoryRepository.save(inventory);
-        return mapToDTO(savedInventory);
+        return mapToDTO(savedInventory, "Inventory Updated");
     }
 
     // Method to map Inventory entity to DTO
+    private InventoryDto mapToDTO(Inventory inventory, String message) {
+        InventoryDto dto = new InventoryDto();
+        dto.setProductId(inventory.getProduct().getId());
+        dto.setQuantity(inventory.getQuantity());
+        dto.setMessage(message);
+        return dto;
+    }
+
     private InventoryDto mapToDTO(Inventory inventory) {
         InventoryDto dto = new InventoryDto();
         dto.setProductId(inventory.getProduct().getId());
         dto.setQuantity(inventory.getQuantity());
-        dto.setMessage("Inventory Updated");
         return dto;
     }
 }

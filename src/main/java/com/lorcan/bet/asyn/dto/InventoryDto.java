@@ -11,4 +11,12 @@ public class InventoryDto {
     private Long productId;
     private Integer quantity;
     private String message;
+
+    public InventoryDto() {
+    }
+
+    public InventoryDto(Long productId, String message) {
+        this.productId = productId;
+        this.message = message;
+    }
 }

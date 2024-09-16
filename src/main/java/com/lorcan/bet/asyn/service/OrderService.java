@@ -34,6 +34,9 @@ public class OrderService {
     @Autowired
     private OrderLogRepository orderLogRepository;
 
+    @Autowired
+    private PaymentService paymentService;
+
     @Async
     @Transactional
     public CompletableFuture<OrderDto> processOrder(Long orderId) {
@@ -54,17 +57,12 @@ public class OrderService {
         try {
             Inventory inventory = inventoryRepository.findByProductIdWithLock(order.getProduct().getId());
             if (inventory.getQuantity() >= order.getQuantity()) {
-                // Deduct stock and mark order as processed
-                inventory.setQuantity(inventory.getQuantity() - order.getQuantity());
-                inventoryRepository.save(inventory);
 
-                order.setStatus(OrderStatus.PROCESSED);
-                order.setErrorMessage(null);
-                orderRepository.save(order);
+                double totalPrice = order.getProduct().getPrice() * order.getQuantity();
 
-                logOrder(order, OrderStatus.PROCESSED, null);
-                dto = OrderUtil.convertToDto(order);
-                dto.setMessage("Order processed successfully");
+                return paymentService.processPayment(orderId, totalPrice)
+                        .thenApply(paymentSuccess -> handlePaymentResult(paymentSuccess, order, inventory, totalPrice))
+                        .exceptionally(e -> handlePaymentException(e, order));
 
             } else {
                 // Insufficient stock, retry after a delay
@@ -84,6 +82,48 @@ public class OrderService {
         }
 
         return CompletableFuture.completedFuture(dto);
+    }
+
+
+    private OrderDto handlePaymentResult(Boolean paymentSuccess, Order order, Inventory inventory, double totalPrice) {
+        if (paymentSuccess) {
+            // Payment succeeded, update the order and inventory
+            inventory.setQuantity(inventory.getQuantity() - order.getQuantity());
+            inventoryRepository.save(inventory);
+
+            order.setStatus(OrderStatus.PROCESSED);
+            order.setErrorMessage(null);
+            orderRepository.save(order);
+
+            logOrder(order, OrderStatus.PROCESSED, null);
+
+            OrderDto dto = OrderUtil.convertToDto(order);
+            dto.setMessage("Order processed successfully");
+            dto.setTotalPrice(totalPrice);
+            return dto;
+        }
+        else {
+            // Payment failed, update the order and do not deduct stock
+            order.setStatus(OrderStatus.FAILED);
+            order.setErrorMessage("Payment Failed");
+            orderRepository.save(order);
+
+            logOrder(order, OrderStatus.FAILED, "Payment failed");
+
+            OrderDto dto = OrderUtil.convertToDto(order);
+            dto.setMessage("Order not processed due to payment failure");
+            return dto;
+        }
+    }
+
+    private OrderDto handlePaymentException(Throwable e, Order order) {
+        // Handle payment exception
+        logOrder(order, OrderStatus.FAILED, "Payment processing error: " + e.getMessage());
+        order.setStatus(OrderStatus.FAILED);
+        order.setErrorMessage("Payment processing error: " + e.getMessage());
+        orderRepository.save(order);
+
+        return new OrderDto(order.getId(), "Payment processing error: " + e.getMessage());
     }
 
     private void retryOrder(Long orderId, String errorMessage) {

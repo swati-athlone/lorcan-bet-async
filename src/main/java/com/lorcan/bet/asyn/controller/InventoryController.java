@@ -26,4 +26,13 @@ public class InventoryController {
         InventoryDto updatedInventory = inventoryService.addInventory(productId, quantity);
         return ResponseEntity.ok(updatedInventory);
     }
+
+
+    // Endpoint to add inventory
+    @GetMapping("/get/{productId}")
+    public ResponseEntity<InventoryDto> getInventory(@PathVariable Long productId) {
+        InventoryDto updatedInventory = inventoryService.getInventory(productId);
+        return ResponseEntity.ok(updatedInventory);
+    }
+
 }

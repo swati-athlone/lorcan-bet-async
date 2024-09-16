@@ -13,6 +13,7 @@ public class OrderDto {
     private String status;
     private String message;
     private Product product;
+    private Double totalPrice;
 
     public OrderDto(){
 
