@@ -92,7 +92,7 @@ public class OrderService {
             inventoryRepository.save(inventory);
 
             order.setStatus(OrderStatus.PROCESSED);
-            order.setErrorMessage(null);
+            order.setErrorMessage("Payment Processed");
             orderRepository.save(order);
 
             logOrder(order, OrderStatus.PROCESSED, null);
